@@ -80,8 +80,10 @@ function App() {
   }
 
   async function addNote() {
+    const title = window.prompt("Nombre del chat", "Nueva conversación")?.trim();
+    if (!title) return;
     try {
-      const note = await createStoredNote();
+      const note = await createStoredNote(title);
       setNotes((current) => [note, ...current]);
       setActiveNoteId(note.id);
       setDataError("");
@@ -175,7 +177,7 @@ function App() {
   return <div className="app-shell" onClick={() => menuNoteId !== null && setMenuNoteId(null)}>
     <aside className="sidebar" onClick={(event) => event.stopPropagation()}>
       <div className="brand-row"><div className="brand-mark" aria-hidden="true"><span /><span /><span /></div><span className="brand-name">Transcriptora</span><button className="icon-button" aria-label="Ajustes"><Icon name="settings" size={17} /></button></div>
-      <button className="new-note" onClick={addNote}><Icon name="add" size={17} /><span className="new-note-label">Nueva nota</span></button>
+      <button className="new-note" onClick={addNote}><Icon name="add" size={17} /><span className="new-note-label">Nuevo chat</span></button>
       <label className="search-control"><Icon name="search" size={16} /><input type="search" placeholder="Buscar notas" aria-label="Buscar notas" /><kbd>Ctrl K</kbd></label>
       <nav className="primary-nav" aria-label="Navegación principal"><button className={activeNoteId === null ? "nav-item is-active" : "nav-item"} onClick={() => setActiveNoteId(null)}><Icon name="audio" size={17} />Grabar</button><button className="nav-item"><Icon name="folder" size={17} />Todos los archivos</button></nav>
       <div className="sidebar-scroll">{favorites.length > 0 && <section className="note-section"><h2>Favoritos</h2>{favorites.map(noteRow)}</section>}<section className="note-section"><h2>Recientes</h2>{recents.map(noteRow)}</section></div>
