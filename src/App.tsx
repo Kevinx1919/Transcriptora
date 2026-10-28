@@ -22,6 +22,16 @@ const initialNotes: Note[] = [
   { id: 4, title: "Notas de investigación", updatedAt: "12 oct", favorite: false },
 ];
 
+function importErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  if (typeof error === "object" && error && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return "No pudimos importar el archivo. Revisa el detalle en la terminal de desarrollo.";
+}
+
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
   const paths: Record<string, ReactNode> = {
@@ -144,7 +154,8 @@ function App() {
       setActiveNoteId(note.id);
       setImportMessage("Archivo guardado localmente y listo para transcribir.");
     } catch (error) {
-      setImportMessage(error instanceof Error ? error.message : "No pudimos importar el archivo.");
+      console.error("La importación local falló", error);
+      setImportMessage(importErrorMessage(error));
     } finally {
       setIsImporting(false);
     }
