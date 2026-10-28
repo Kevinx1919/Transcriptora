@@ -12,6 +12,10 @@ Aplicación de escritorio para Windows orientada a grabar, importar y transcribi
 
 La primera versión no dependerá de una API de pago ni de sincronización en la nube. La dirección técnica elegida es Tauri 2, React, TypeScript y Rust; las notas y transcripciones se almacenarán en SQLite y las grabaciones en una carpeta local administrada por la app. La transcripción se integrará posteriormente con un motor Whisper ejecutado en el dispositivo. La traducción automática y los resúmenes se evaluarán en fases posteriores.
 
+## Datos locales
+
+La base SQLite se crea en el directorio de datos privado de Transcriptora. La aplicación guarda notas y sus metadatos (título, fecha de creación, fecha de actualización y favorito); los audios y vídeos no se incluirán en la base de datos, sino que se gestionarán como archivos locales en una fase posterior. El esquema evoluciona mediante migraciones versionadas en el código nativo.
+
 ## Privacidad y consentimiento
 
 La persona que use la aplicación es responsable de obtener el consentimiento de quienes participen en una llamada o grabación. Los audios, las transcripciones y las notas se guardarán exclusivamente de forma local en la primera versión.

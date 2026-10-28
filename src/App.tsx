@@ -1,4 +1,11 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createNote as createStoredNote,
+  listNotes,
+  removeNote,
+  renameNote as renameStoredNote,
+  setFavorite,
+} from "./data/notes";
 import "./App.css";
 
 type Note = { id: number; title: string; updatedAt: string; favorite: boolean };
@@ -38,29 +45,71 @@ function App() {
   const [permission, setPermission] = useState<PermissionState>("idle");
   const [isRecording, setIsRecording] = useState(false);
   const [activeSource, setActiveSource] = useState<"record" | "file">("record");
+  const [dataError, setDataError] = useState("");
   const activeNote = useMemo(() => notes.find((note) => note.id === activeNoteId) ?? null, [activeNoteId, notes]);
   const favorites = notes.filter((note) => note.favorite);
   const recents = notes.filter((note) => !note.favorite);
 
-  function addNote() {
-    const note = { id: Date.now(), title: "Nota sin título", updatedAt: "Ahora", favorite: false };
-    setNotes((current) => [note, ...current]);
-    setActiveNoteId(note.id);
+  useEffect(() => {
+    void loadNotes();
+  }, []);
+
+  async function loadNotes() {
+    try {
+      const storedNotes = await listNotes();
+      setNotes(storedNotes);
+      setDataError("");
+    } catch {
+      setDataError("La base local estará disponible al abrir Transcriptora en Windows.");
+    }
   }
-  function renameNote(id: number) {
+
+  async function addNote() {
+    try {
+      const note = await createStoredNote();
+      setNotes((current) => [note, ...current]);
+      setActiveNoteId(note.id);
+      setDataError("");
+    } catch {
+      setDataError("No pudimos crear la nota local. Inténtalo de nuevo.");
+    }
+  }
+  async function renameNote(id: number) {
     const note = notes.find((item) => item.id === id);
     const title = note && window.prompt("Nombre de la nota", note.title)?.trim();
-    if (title) setNotes((current) => current.map((item) => item.id === id ? { ...item, title, updatedAt: "Ahora" } : item));
+    if (title) {
+      try {
+        await renameStoredNote(id, title);
+        setNotes((current) => current.map((item) => item.id === id ? { ...item, title, updatedAt: "Ahora" } : item));
+      } catch {
+        setDataError("No pudimos cambiar el nombre de la nota.");
+      }
+    }
     setMenuNoteId(null);
   }
-  function deleteNote(id: number) {
+  async function deleteNote(id: number) {
     const note = notes.find((item) => item.id === id);
     if (!note || !window.confirm(`Eliminar “${note.title}”?`)) return;
-    setNotes((current) => current.filter((item) => item.id !== id));
-    if (activeNoteId === id) setActiveNoteId(null);
+    try {
+      await removeNote(id);
+      setNotes((current) => current.filter((item) => item.id !== id));
+      if (activeNoteId === id) setActiveNoteId(null);
+    } catch {
+      setDataError("No pudimos eliminar la nota.");
+    }
     setMenuNoteId(null);
   }
-  function toggleFavorite(id: number) { setNotes((current) => current.map((item) => item.id === id ? { ...item, favorite: !item.favorite } : item)); setMenuNoteId(null); }
+  async function toggleFavorite(id: number) {
+    const note = notes.find((item) => item.id === id);
+    if (!note) return;
+    try {
+      await setFavorite(id, !note.favorite);
+      setNotes((current) => current.map((item) => item.id === id ? { ...item, favorite: !item.favorite } : item));
+    } catch {
+      setDataError("No pudimos actualizar los favoritos.");
+    }
+    setMenuNoteId(null);
+  }
   async function startRecording() {
     if (isRecording) { setIsRecording(false); return; }
     if (!navigator.mediaDevices?.getUserMedia) { setPermission("denied"); return; }
@@ -91,7 +140,7 @@ function App() {
       <label className="search-control"><Icon name="search" size={16} /><input type="search" placeholder="Buscar notas" aria-label="Buscar notas" /><kbd>Ctrl K</kbd></label>
       <nav className="primary-nav" aria-label="Navegación principal"><button className={activeNoteId === null ? "nav-item is-active" : "nav-item"} onClick={() => setActiveNoteId(null)}><Icon name="audio" size={17} />Grabar</button><button className="nav-item"><Icon name="folder" size={17} />Todos los archivos</button></nav>
       <div className="sidebar-scroll">{favorites.length > 0 && <section className="note-section"><h2>Favoritos</h2>{favorites.map(noteRow)}</section>}<section className="note-section"><h2>Recientes</h2>{recents.map(noteRow)}</section></div>
-      <div className="local-status"><span className="status-dot" />Tus datos se guardan en este equipo</div>
+      <div className={dataError ? "local-status has-error" : "local-status"}><span className="status-dot" />{dataError || "Tus datos se guardan en este equipo"}</div>
     </aside>
     <main className="workspace">
       <header className="topbar"><div className="crumb"><span>Mi espacio</span><Icon name="chevron" size={14} /><strong>{activeNote ? activeNote.title : "Grabación"}</strong></div><div className="topbar-actions"><span className="local-badge">Solo local</span><button className="icon-button" aria-label="Cerrar panel"><Icon name="close" size={17} /></button></div></header>
