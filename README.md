@@ -10,11 +10,11 @@ Aplicación de escritorio para Windows orientada a grabar, importar y transcribi
 - Guardar notas, títulos y transcripciones en el equipo.
 - Permitir editar títulos y texto en una interfaz inspirada en un bloc de notas moderno.
 
-La primera versión no dependerá de una API de pago. La dirección técnica prevista es una app nativa para Windows con almacenamiento local y un motor Whisper ejecutado en el dispositivo. La traducción automática y los resúmenes se evaluarán en fases posteriores.
+La primera versión no dependerá de una API de pago ni de sincronización en la nube. La dirección técnica elegida es Tauri 2, React, TypeScript y Rust; las notas y transcripciones se almacenarán en SQLite y las grabaciones en una carpeta local administrada por la app. La transcripción se integrará posteriormente con un motor Whisper ejecutado en el dispositivo. La traducción automática y los resúmenes se evaluarán en fases posteriores.
 
 ## Privacidad y consentimiento
 
-La persona que use la aplicación es responsable de obtener el consentimiento de quienes participen en una llamada o grabación. Por defecto, los audios y las transcripciones se guardarán localmente.
+La persona que use la aplicación es responsable de obtener el consentimiento de quienes participen en una llamada o grabación. Los audios, las transcripciones y las notas se guardarán exclusivamente de forma local en la primera versión.
 
 ## Estado
 
