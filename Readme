@@ -12,6 +12,27 @@ Aplicación de escritorio para Windows orientada a grabar, importar y transcribi
 
 La primera versión no dependerá de una API de pago ni de sincronización en la nube. La dirección técnica elegida es Tauri 2, React, TypeScript y Rust; las notas y transcripciones se almacenarán en SQLite y las grabaciones en una carpeta local administrada por la app. La transcripción se integrará posteriormente con un motor Whisper ejecutado en el dispositivo. La traducción automática y los resúmenes se evaluarán en fases posteriores.
 
+## Ejecutar y comprobar la aplicación
+
+### Requisitos de Windows
+
+- Node.js LTS y npm.
+- Rust estable con el objetivo `x86_64-pc-windows-msvc`.
+- Visual Studio 2022 Build Tools con las herramientas de C++ instaladas.
+
+### Inicio local
+
+Desde la carpeta del proyecto:
+
+```powershell
+npm install
+npm run tauri dev
+```
+
+La verificación correcta se reconoce porque se abre la ventana de **Transcriptora** sin mostrar errores de compilación en la terminal. Para confirmar la persistencia local, crea una nota, renómbrala, márcala como favorita, cierra la aplicación y vuelve a abrirla: la nota debe seguir apareciendo.
+
+Si algo falla, envíanos una captura de la terminal o copia el error completo, junto con el comando que ejecutaste. No hace falta que borres carpetas ni reinstales herramientas antes de revisar ese mensaje.
+
 ## Datos locales
 
 La base SQLite se crea en el directorio de datos privado de Transcriptora. La aplicación guarda notas y sus metadatos (título, fecha de creación, fecha de actualización y favorito); los audios y vídeos no se incluirán en la base de datos, sino que se gestionarán como archivos locales en una fase posterior. El esquema evoluciona mediante migraciones versionadas en el código nativo.
@@ -22,4 +43,4 @@ La persona que use la aplicación es responsable de obtener el consentimiento de
 
 ## Estado
 
-El repositorio se está inicializando. La siguiente fase se desarrollará en `feature/integraciones`.
+La interfaz base y la persistencia local de notas con SQLite están disponibles en `feature/integraciones`. Lo siguiente será integrar la importación de archivos y, después, la captura y transcripción local.

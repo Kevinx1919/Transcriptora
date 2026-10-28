@@ -2,7 +2,7 @@
 
 ## Propósito
 
-Este archivo contiene el contexto operativo para los agentes que trabajen en Transcriptora. El README está dirigido a las personas que usan o contribuyen al proyecto; aquí se documentan convenciones, verificaciones y decisiones de desarrollo.
+Este archivo contiene el contexto operativo para los agentes que trabajen en Transcriptora. `Readme` está dirigido a las personas que usan o contribuyen al proyecto; aquí se documentan convenciones, verificaciones y decisiones de desarrollo.
 
 ## Contexto del producto
 
@@ -17,7 +17,8 @@ La primera versión no debe requerir servicios de pago ni enviar audio a tercero
 
 ## Entorno de desarrollo
 
-- La stack de la aplicación todavía no se ha inicializado. Antes de añadir una dependencia o una herramienta de compilación, documentar la elección en el README o en la documentación técnica correspondiente.
+- La stack está inicializada con Tauri 2, React, TypeScript, Rust y SQLite local. Antes de añadir una dependencia o una herramienta de compilación, documentar la elección en `Readme` o en la documentación técnica correspondiente.
+- En Windows, la compilación nativa requiere Rust con el objetivo `x86_64-pc-windows-msvc` y Visual Studio 2022 Build Tools con el workload de herramientas C++.
 - Preferir dependencias mantenidas, de código abierto y compatibles con Windows.
 - Mantener separadas la captura de audio, el procesamiento/transcripción, el almacenamiento local y la interfaz de usuario.
 - No incluir claves, tokens, audios personales, transcripciones privadas ni modelos descargados en Git.
@@ -38,6 +39,8 @@ La primera versión no debe requerir servicios de pago ni enviar audio a tercero
 - Corregir todos los errores de pruebas o tipos antes de proponer una integración.
 - Tras cambiar dependencias, rutas, importaciones o configuración de compilación, ejecutar una compilación de producción si el entorno ya está disponible.
 - Cuando una función interactúe con audio, comprobar al menos los casos de permiso denegado, dispositivo no disponible, archivo inválido y cancelación.
+- Para una verificación manual de escritorio, ejecutar `npm run tauri dev`, crear una nota, cambiarle el nombre, marcarla como favorita y reiniciar la aplicación para confirmar que SQLite conserva los datos.
+- Si falla una compilación, conservar y compartir el texto completo del error; no eliminar `src-tauri/target` para intentar resolver un bloqueo sin identificar primero el proceso que lo usa.
 
 ## Git y pull requests
 
