@@ -33,6 +33,16 @@ function importErrorMessage(error: unknown): string {
   return "No pudimos importar el archivo. Revisa el detalle en la terminal de desarrollo.";
 }
 
+function localDataErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  if (typeof error === "object" && error && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return fallback;
+}
+
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
   const paths: Record<string, ReactNode> = {
@@ -123,8 +133,9 @@ function App() {
       }
       setDataError("");
       setChatDialog(null);
-    } catch {
-      setChatDialogError("No pudimos guardar el chat. Inténtalo de nuevo.");
+    } catch (error) {
+      console.error("No pudimos guardar el chat local", error);
+      setChatDialogError(localDataErrorMessage(error, "No pudimos guardar el chat. Revisa la consola de desarrollo."));
     } finally {
       setIsSavingChat(false);
     }

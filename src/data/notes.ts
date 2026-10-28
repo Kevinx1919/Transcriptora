@@ -54,13 +54,11 @@ export async function listNotes(): Promise<StoredNote[]> {
 
 export async function createNote(title = "Nota sin título"): Promise<StoredNote> {
   const db = await database();
-  const result = await db.execute(
-    "INSERT INTO notes (title, favorite, created_at, updated_at) VALUES ($1, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-    [title],
-  );
   const rows = await db.select<NoteRow[]>(
-    "SELECT id, title, favorite, created_at, updated_at FROM notes WHERE id = $1",
-    [result.lastInsertId],
+    `INSERT INTO notes (title, favorite, created_at, updated_at)
+     VALUES ($1, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+     RETURNING id, title, favorite, created_at, updated_at`,
+    [title],
   );
   const note = rows[0];
   if (!note) throw new Error("No se pudo crear la nota local.");
