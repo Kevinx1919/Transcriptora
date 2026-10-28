@@ -47,5 +47,6 @@ La primera versión no debe requerir servicios de pago ni enviar audio a tercero
 - `main` debe mantenerse estable y contener cambios revisados.
 - Todo desarrollo nuevo se realiza en ramas `feature/<nombre>`.
 - Mantener commits pequeños, descriptivos y centrados en un objetivo.
+- Redactar los commits en español. El título debe expresar el resultado y el cuerpo debe incluir una lista breve de los cambios clave cuando el commit afecte más de un archivo o comportamiento.
 - No mezclar cambios no relacionados ni incluir artefactos generados.
 - El título de un pull request debe describir el resultado para la persona usuaria, no solo la implementación.
