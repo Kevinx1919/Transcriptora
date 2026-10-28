@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   createNote as createStoredNote,
@@ -13,6 +13,7 @@ import "./App.css";
 type Note = { id: number; title: string; updatedAt: string; favorite: boolean };
 type PermissionState = "idle" | "requesting" | "granted" | "denied";
 type ImportedMedia = { fileName: string; storedPath: string; mediaKind: string };
+type ChatDialog = { mode: "create" } | { mode: "rename"; note: Note } | null;
 
 const waveformHeights = [18, 31, 46, 60, 35, 72, 52, 29, 64, 40, 78, 48, 25, 56, 70, 38, 62, 44, 74, 32, 58, 28, 51, 68, 42, 22];
 const initialNotes: Note[] = [
@@ -53,8 +54,14 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
 
 function App() {
   const [notes, setNotes] = useState(initialNotes);
+  const [notesReady, setNotesReady] = useState(false);
   const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
   const [menuNoteId, setMenuNoteId] = useState<number | null>(null);
+  const [chatDialog, setChatDialog] = useState<ChatDialog>(null);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [chatDialogError, setChatDialogError] = useState("");
+  const [isSavingChat, setIsSavingChat] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const [permission, setPermission] = useState<PermissionState>("idle");
   const [isRecording, setIsRecording] = useState(false);
   const [activeSource, setActiveSource] = useState<"record" | "file">("record");
@@ -69,6 +76,10 @@ function App() {
     void loadNotes();
   }, []);
 
+  useEffect(() => {
+    if (chatDialog) window.setTimeout(() => titleInputRef.current?.select(), 0);
+  }, [chatDialog]);
+
   async function loadNotes() {
     try {
       const storedNotes = await listNotes();
@@ -76,33 +87,51 @@ function App() {
       setDataError("");
     } catch {
       setDataError("La base local estará disponible al abrir Transcriptora en Windows.");
+    } finally {
+      setNotesReady(true);
     }
   }
 
-  async function addNote() {
-    const title = window.prompt("Nombre del chat", "Nueva conversación")?.trim();
-    if (!title) return;
+  function openCreateChat() {
+    if (!notesReady) return;
+    setDraftTitle("");
+    setChatDialogError("");
+    setChatDialog({ mode: "create" });
+  }
+  function openRenameChat(note: Note) {
+    setDraftTitle(note.title);
+    setChatDialogError("");
+    setMenuNoteId(null);
+    setChatDialog({ mode: "rename", note });
+  }
+  function closeChatDialog() {
+    if (!isSavingChat) setChatDialog(null);
+  }
+  async function saveChat() {
+    const title = draftTitle.trim();
+    if (!title) { setChatDialogError("Escribe un nombre para continuar."); return; }
+    if (!chatDialog) return;
+    setIsSavingChat(true);
     try {
-      const note = await createStoredNote(title);
-      setNotes((current) => [note, ...current]);
-      setActiveNoteId(note.id);
+      if (chatDialog.mode === "create") {
+        const note = await createStoredNote(title);
+        setNotes((current) => [note, ...current]);
+        setActiveNoteId(note.id);
+      } else {
+        await renameStoredNote(chatDialog.note.id, title);
+        setNotes((current) => current.map((item) => item.id === chatDialog.note.id ? { ...item, title, updatedAt: "Ahora" } : item));
+      }
       setDataError("");
+      setChatDialog(null);
     } catch {
-      setDataError("No pudimos crear la nota local. Inténtalo de nuevo.");
+      setChatDialogError("No pudimos guardar el chat. Inténtalo de nuevo.");
+    } finally {
+      setIsSavingChat(false);
     }
   }
   async function renameNote(id: number) {
     const note = notes.find((item) => item.id === id);
-    const title = note && window.prompt("Nombre de la nota", note.title)?.trim();
-    if (title) {
-      try {
-        await renameStoredNote(id, title);
-        setNotes((current) => current.map((item) => item.id === id ? { ...item, title, updatedAt: "Ahora" } : item));
-      } catch {
-        setDataError("No pudimos cambiar el nombre de la nota.");
-      }
-    }
-    setMenuNoteId(null);
+    if (note) openRenameChat(note);
   }
   async function deleteNote(id: number) {
     const note = notes.find((item) => item.id === id);
@@ -177,7 +206,7 @@ function App() {
   return <div className="app-shell" onClick={() => menuNoteId !== null && setMenuNoteId(null)}>
     <aside className="sidebar" onClick={(event) => event.stopPropagation()}>
       <div className="brand-row"><div className="brand-mark" aria-hidden="true"><span /><span /><span /></div><span className="brand-name">Transcriptora</span><button className="icon-button" aria-label="Ajustes"><Icon name="settings" size={17} /></button></div>
-      <button className="new-note" onClick={addNote}><Icon name="add" size={17} /><span className="new-note-label">Nuevo chat</span></button>
+      <button className="new-note" onClick={openCreateChat} disabled={!notesReady}><Icon name="add" size={17} /><span className="new-note-label">{notesReady ? "Nuevo chat" : "Abriendo chats"}</span></button>
       <label className="search-control"><Icon name="search" size={16} /><input type="search" placeholder="Buscar notas" aria-label="Buscar notas" /><kbd>Ctrl K</kbd></label>
       <nav className="primary-nav" aria-label="Navegación principal"><button className={activeNoteId === null ? "nav-item is-active" : "nav-item"} onClick={() => setActiveNoteId(null)}><Icon name="audio" size={17} />Grabar</button><button className="nav-item"><Icon name="folder" size={17} />Todos los archivos</button></nav>
       <div className="sidebar-scroll">{favorites.length > 0 && <section className="note-section"><h2>Favoritos</h2>{favorites.map(noteRow)}</section>}<section className="note-section"><h2>Recientes</h2>{recents.map(noteRow)}</section></div>
@@ -188,6 +217,17 @@ function App() {
       {activeNote ? <section className="note-view"><div className="note-view-header"><div><p className="updated">Editado {activeNote.updatedAt}</p><h1>{activeNote.title}</h1></div><button className="quiet-action" onClick={() => renameNote(activeNote.id)}>Renombrar</button></div><div className="empty-transcript"><div className="empty-symbol"><Icon name="audio" size={22} /></div><h2>Esta nota aún no tiene transcripción</h2><p>Inicia una grabación o importa un archivo para añadir contenido.</p><button className="primary-action" onClick={() => setActiveNoteId(null)}><Icon name="microphone" size={18} />Iniciar una grabación</button></div></section> :
       <section className="recording-view"><div className="recording-heading"><p>Tu espacio de captura</p><h1>Graba una conversación</h1><span>El audio y las notas permanecen en tu equipo.</span></div><div className="capture-panel" data-recording={isRecording || undefined}><div className="capture-tabs" role="tablist" aria-label="Fuente de audio"><button className={activeSource === "file" ? "capture-tab is-selected" : "capture-tab"} onClick={() => { setActiveSource("file"); setImportMessage(""); }} role="tab" aria-selected={activeSource === "file"}>Archivo local</button><button className={activeSource === "record" ? "capture-tab is-selected" : "capture-tab"} onClick={() => setActiveSource("record")} role="tab" aria-selected={activeSource === "record"}>Grabar</button></div>{activeSource === "file" ? <div className="import-state"><Icon name="folder" size={28} /><h2>Importa un audio o video</h2><p>MP3, WAV, M4A, MP4, MOV y WebM.</p><button className="primary-action" onClick={importLocalFile} disabled={isImporting}><Icon name="folder" size={18} />{isImporting ? "Guardando archivo" : "Elegir archivo"}</button>{importMessage && <p className="import-message" role="status">{importMessage}</p>}</div> : <><div className="waveform" aria-hidden="true">{waveformHeights.map((height, index) => <span key={index} style={{ height }} />)}</div><p className="recording-time">{isRecording ? "Grabando · 00:00:00" : "00:00:00"}</p><button className="record-button" onClick={startRecording} disabled={permission === "requesting"}>{isRecording ? <Icon name="close" size={18} /> : <Icon name="microphone" size={18} />}{permission === "requesting" ? "Solicitando permiso" : isRecording ? "Detener grabación" : "Iniciar grabación"}</button><p className={permission === "denied" ? "permission-note is-error" : "permission-note"}>{permission === "idle" && "Al iniciar, te pediremos acceso al micrófono."}{permission === "requesting" && "Esperando la decisión de Windows."}{permission === "granted" && "Micrófono permitido. La captura está lista para guardarse localmente."}{permission === "denied" && "No pudimos usar el micrófono. Revisa los permisos de Windows e inténtalo de nuevo."}</p></>}</div><div className="capture-options"><div><strong>Micrófono</strong><span>Captura tu voz</span></div><div><strong>Audio del sistema</strong><span>Se conectará en el módulo de captura de Windows</span></div><button className="quiet-action">Configurar fuentes</button></div></section>}
     </main>
+    {chatDialog && <div className="chat-dialog-backdrop" role="presentation" onMouseDown={closeChatDialog}>
+      <section className="chat-dialog" role="dialog" aria-modal="true" aria-labelledby="chat-dialog-title" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="dialog-signal" aria-hidden="true"><span /><span /><span /><span /><span /></div>
+        <p className="dialog-context">{chatDialog.mode === "create" ? "Nuevo chat" : "Editar chat"}</p>
+        <h2 id="chat-dialog-title">{chatDialog.mode === "create" ? "Nombra esta conversación" : "Cambia el nombre del chat"}</h2>
+        <label htmlFor="chat-title">Nombre</label>
+        <input id="chat-title" ref={titleInputRef} value={draftTitle} onChange={(event) => { setDraftTitle(event.target.value); setChatDialogError(""); }} onKeyDown={(event) => { if (event.key === "Enter") void saveChat(); if (event.key === "Escape") closeChatDialog(); }} placeholder="Por ejemplo: Reunión de producto" maxLength={120} disabled={isSavingChat} />
+        {chatDialogError && <p className="dialog-error" role="alert">{chatDialogError}</p>}
+        <div className="dialog-actions"><button className="quiet-action" onClick={closeChatDialog} disabled={isSavingChat}>Cancelar</button><button className="primary-action" onClick={() => void saveChat()} disabled={isSavingChat}>{isSavingChat ? "Guardando" : chatDialog.mode === "create" ? "Crear chat" : "Guardar cambios"}</button></div>
+      </section>
+    </div>}
   </div>;
 }
 
