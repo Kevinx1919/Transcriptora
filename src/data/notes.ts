@@ -18,6 +18,13 @@ export type StoredNote = {
   updatedAt: string;
 };
 
+export type StoredMedia = {
+  noteId: number;
+  fileName: string;
+  storedPath: string;
+  mediaKind: string;
+};
+
 let databasePromise: Promise<Database> | undefined;
 
 function database() {
@@ -79,4 +86,12 @@ export async function setFavorite(id: number, favorite: boolean): Promise<void> 
 export async function removeNote(id: number): Promise<void> {
   const db = await database();
   await db.execute("DELETE FROM notes WHERE id = $1", [id]);
+}
+
+export async function saveImportedMedia(media: StoredMedia): Promise<void> {
+  const db = await database();
+  await db.execute(
+    "INSERT INTO media_items (note_id, file_name, stored_path, media_kind) VALUES ($1, $2, $3, $4)",
+    [media.noteId, media.fileName, media.storedPath, media.mediaKind],
+  );
 }

@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
   createNote as createStoredNote,
   listNotes,
   removeNote,
   renameNote as renameStoredNote,
+  saveImportedMedia,
   setFavorite,
 } from "./data/notes";
 import "./App.css";
 
 type Note = { id: number; title: string; updatedAt: string; favorite: boolean };
 type PermissionState = "idle" | "requesting" | "granted" | "denied";
+type ImportedMedia = { fileName: string; storedPath: string; mediaKind: string };
 
 const waveformHeights = [18, 31, 46, 60, 35, 72, 52, 29, 64, 40, 78, 48, 25, 56, 70, 38, 62, 44, 74, 32, 58, 28, 51, 68, 42, 22];
 const initialNotes: Note[] = [
@@ -46,6 +49,8 @@ function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [activeSource, setActiveSource] = useState<"record" | "file">("record");
   const [dataError, setDataError] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState("");
   const activeNote = useMemo(() => notes.find((note) => note.id === activeNoteId) ?? null, [activeNoteId, notes]);
   const favorites = notes.filter((note) => note.favorite);
   const recents = notes.filter((note) => !note.favorite);
@@ -121,6 +126,29 @@ function App() {
       setIsRecording(true);
     } catch { setPermission("denied"); }
   }
+  async function importLocalFile() {
+    setIsImporting(true);
+    setImportMessage("");
+    try {
+      const media = await invoke<ImportedMedia | null>("import_local_media");
+      if (!media) return;
+      const title = media.fileName.replace(/\.[^.]+$/, "").trim() || "Archivo importado";
+      const note = await createStoredNote(title);
+      await saveImportedMedia({
+        noteId: note.id,
+        fileName: media.fileName,
+        storedPath: media.storedPath,
+        mediaKind: media.mediaKind,
+      });
+      setNotes((current) => [note, ...current]);
+      setActiveNoteId(note.id);
+      setImportMessage("Archivo guardado localmente y listo para transcribir.");
+    } catch (error) {
+      setImportMessage(error instanceof Error ? error.message : "No pudimos importar el archivo.");
+    } finally {
+      setIsImporting(false);
+    }
+  }
   function noteRow(note: Note) {
     return <div className={`note-row ${activeNoteId === note.id ? "is-active" : ""}`} key={note.id}>
       <button className="note-open" onClick={() => { setActiveNoteId(note.id); setMenuNoteId(null); }} aria-label={`Abrir ${note.title}`}><Icon name="document" size={16} /><span>{note.title}</span></button>
@@ -145,7 +173,7 @@ function App() {
     <main className="workspace">
       <header className="topbar"><div className="crumb"><span>Mi espacio</span><Icon name="chevron" size={14} /><strong>{activeNote ? activeNote.title : "Grabación"}</strong></div><div className="topbar-actions"><span className="local-badge">Solo local</span><button className="icon-button" aria-label="Cerrar panel"><Icon name="close" size={17} /></button></div></header>
       {activeNote ? <section className="note-view"><div className="note-view-header"><div><p className="updated">Editado {activeNote.updatedAt}</p><h1>{activeNote.title}</h1></div><button className="quiet-action" onClick={() => renameNote(activeNote.id)}>Renombrar</button></div><div className="empty-transcript"><div className="empty-symbol"><Icon name="audio" size={22} /></div><h2>Esta nota aún no tiene transcripción</h2><p>Inicia una grabación o importa un archivo para añadir contenido.</p><button className="primary-action" onClick={() => setActiveNoteId(null)}><Icon name="microphone" size={18} />Iniciar una grabación</button></div></section> :
-      <section className="recording-view"><div className="recording-heading"><p>Tu espacio de captura</p><h1>Graba una conversación</h1><span>El audio y las notas permanecen en tu equipo.</span></div><div className="capture-panel" data-recording={isRecording || undefined}><div className="capture-tabs" role="tablist" aria-label="Fuente de audio"><button className={activeSource === "file" ? "capture-tab is-selected" : "capture-tab"} onClick={() => setActiveSource("file")} role="tab" aria-selected={activeSource === "file"}>Archivo local</button><button className={activeSource === "record" ? "capture-tab is-selected" : "capture-tab"} onClick={() => setActiveSource("record")} role="tab" aria-selected={activeSource === "record"}>Grabar</button></div>{activeSource === "file" ? <div className="import-state"><Icon name="folder" size={28} /><h2>Importa un audio o video</h2><p>MP3, WAV, M4A, MP4, MOV y WebM.</p><button className="primary-action"><Icon name="folder" size={18} />Elegir archivo</button></div> : <><div className="waveform" aria-hidden="true">{waveformHeights.map((height, index) => <span key={index} style={{ height }} />)}</div><p className="recording-time">{isRecording ? "Grabando · 00:00:00" : "00:00:00"}</p><button className="record-button" onClick={startRecording} disabled={permission === "requesting"}>{isRecording ? <Icon name="close" size={18} /> : <Icon name="microphone" size={18} />}{permission === "requesting" ? "Solicitando permiso" : isRecording ? "Detener grabación" : "Iniciar grabación"}</button><p className={permission === "denied" ? "permission-note is-error" : "permission-note"}>{permission === "idle" && "Al iniciar, te pediremos acceso al micrófono."}{permission === "requesting" && "Esperando la decisión de Windows."}{permission === "granted" && "Micrófono permitido. La captura está lista para guardarse localmente."}{permission === "denied" && "No pudimos usar el micrófono. Revisa los permisos de Windows e inténtalo de nuevo."}</p></>}</div><div className="capture-options"><div><strong>Micrófono</strong><span>Captura tu voz</span></div><div><strong>Audio del sistema</strong><span>Se conectará en el módulo de captura de Windows</span></div><button className="quiet-action">Configurar fuentes</button></div></section>}
+      <section className="recording-view"><div className="recording-heading"><p>Tu espacio de captura</p><h1>Graba una conversación</h1><span>El audio y las notas permanecen en tu equipo.</span></div><div className="capture-panel" data-recording={isRecording || undefined}><div className="capture-tabs" role="tablist" aria-label="Fuente de audio"><button className={activeSource === "file" ? "capture-tab is-selected" : "capture-tab"} onClick={() => { setActiveSource("file"); setImportMessage(""); }} role="tab" aria-selected={activeSource === "file"}>Archivo local</button><button className={activeSource === "record" ? "capture-tab is-selected" : "capture-tab"} onClick={() => setActiveSource("record")} role="tab" aria-selected={activeSource === "record"}>Grabar</button></div>{activeSource === "file" ? <div className="import-state"><Icon name="folder" size={28} /><h2>Importa un audio o video</h2><p>MP3, WAV, M4A, MP4, MOV y WebM.</p><button className="primary-action" onClick={importLocalFile} disabled={isImporting}><Icon name="folder" size={18} />{isImporting ? "Guardando archivo" : "Elegir archivo"}</button>{importMessage && <p className="import-message" role="status">{importMessage}</p>}</div> : <><div className="waveform" aria-hidden="true">{waveformHeights.map((height, index) => <span key={index} style={{ height }} />)}</div><p className="recording-time">{isRecording ? "Grabando · 00:00:00" : "00:00:00"}</p><button className="record-button" onClick={startRecording} disabled={permission === "requesting"}>{isRecording ? <Icon name="close" size={18} /> : <Icon name="microphone" size={18} />}{permission === "requesting" ? "Solicitando permiso" : isRecording ? "Detener grabación" : "Iniciar grabación"}</button><p className={permission === "denied" ? "permission-note is-error" : "permission-note"}>{permission === "idle" && "Al iniciar, te pediremos acceso al micrófono."}{permission === "requesting" && "Esperando la decisión de Windows."}{permission === "granted" && "Micrófono permitido. La captura está lista para guardarse localmente."}{permission === "denied" && "No pudimos usar el micrófono. Revisa los permisos de Windows e inténtalo de nuevo."}</p></>}</div><div className="capture-options"><div><strong>Micrófono</strong><span>Captura tu voz</span></div><div><strong>Audio del sistema</strong><span>Se conectará en el módulo de captura de Windows</span></div><button className="quiet-action">Configurar fuentes</button></div></section>}
     </main>
   </div>;
 }
